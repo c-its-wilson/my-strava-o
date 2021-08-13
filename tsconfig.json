@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+      "target": "es2020",
       "lib": ["ES2019", "esnext"],
       "allowJs": true,
       "skipLibCheck": true,
@@ -16,7 +17,7 @@
       "removeComments": true,
       "sourceMap": true,
       "declaration": true,
-      // "target": "esnext",
+      "target": "esnext",
       "module": "commonjs"
     },
     "include": ["*.ts"]
