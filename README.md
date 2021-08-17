@@ -1,4 +1,4 @@
-# my-strava
+# my-strava - OUTDATED
 A small project of mine to display a summary of my Strava data.
 
 ## Including: 

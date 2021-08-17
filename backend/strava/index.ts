@@ -1,24 +1,30 @@
 import { default as strava } from 'strava-v3';
-import fs from 'fs'
-import { readFile } from './logger';
+import path from 'path';
+import { overwriteFile, readFile } from './logger';
 import credentials from '../../config.json'
 
 type StravaCredentials = typeof credentials;
-
-require('dotenv').config();
-
-
 
 export class StravaAthlete {
 
     readonly athlete_id = '5626404'
 
-    constructor(credentials: StravaCredentials){
+    readonly configPath = path.resolve(__dirname, '../../config.json')
+
+    stravaApiConfig: StravaCredentials
+
+    setStravaApiConfig = (data: StravaCredentials) => {
+        overwriteFile(this.configPath, JSON.stringify(data, null, 2))
+        this.stravaApiConfig = JSON.parse(readFile(this.configPath));
+    };
+
+    constructor(){
+        this.stravaApiConfig = JSON.parse(readFile(this.configPath));
         strava.config({
-            "access_token"  : credentials.access_token,
-            "client_id"     : credentials.client_id,
-            "client_secret" : credentials.client_secret,
-            "redirect_uri"  : credentials.redirect_uri,
+            "access_token"  : this.stravaApiConfig.access_token,
+            "client_id"     : this.stravaApiConfig.client_id,
+            "client_secret" : this.stravaApiConfig.client_secret,
+            "redirect_uri"  : this.stravaApiConfig.redirect_uri,
           });
     }
 
@@ -27,7 +33,7 @@ export class StravaAthlete {
     }
 
     stravaArgs = () => {
-        const configData = JSON.parse(readFile('../../config.json'))
+        const configData = JSON.parse(readFile(this.configPath))
         return {
             id: this.athlete_id,
             access_token: configData.access_token
@@ -35,32 +41,34 @@ export class StravaAthlete {
     }
 
     refreshTokens = async () => {
-        let configData = JSON.parse(readFile('../../config.json'))
-        const newAuthCodes = await strava.oauth.refreshToken(configData.refresh_token)
+        console.log('tokens expired, refreshing')
+        const newAuthCodes = await strava.oauth.refreshToken(this.stravaApiConfig.refresh_token)
 
-        configData.refresh_token = newAuthCodes.refresh_token
-        configData.access_token = newAuthCodes.access_token;
+        this.stravaApiConfig.refresh_token = newAuthCodes.refresh_token;
+        this.stravaApiConfig.access_token = newAuthCodes.access_token;
+        this.stravaApiConfig.expires_at = newAuthCodes.expires_at;
+
+        this.setStravaApiConfig(this.stravaApiConfig)
+        console.log('tokens refreshed')
     }
 
     fetchData = async (predicate: () => Promise<any>) => {
-        const stravaResponse = await predicate();
-        if (stravaResponse.statusCode === 401) {
-            // may have failed due to expired tokens
-            // generate new tokens
+        if (Date.now() > this.stravaApiConfig.expires_at) {
             this.refreshTokens()
-            //call predicate again
-            return await predicate()
-        } else {
-            return stravaResponse
         }
-        // predicate is strava wrapper request
-        // do that first, if errors then try to refresh token 
-    
+
+        try {
+            return await predicate();
+        } catch (error: any) {
+            console.log('there has been an error: ' + error.statusCode.toString())
+        }    
     }
     
 }
 
 
-export const StravaSummary (athlete: StravaAthlete) => {
-    
+export const StravaSummary = async (athlete: StravaAthlete) => {
+    const a = await athlete.fetchData(() => strava.athlete.get(athlete.stravaArgs()))
+    console.log(a)
+    athlete.fetchData(() => strava.athlete.listActivities(athlete.stravaArgs()).then(res => console.log(res)))
 }

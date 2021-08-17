@@ -1,0 +1,9 @@
+{
+  "access_token": "string",
+  "client_id": "string",
+  "expires_at": "integer",
+  "client_secret": "string",
+  "refresh_token": "string",
+  "redirect_uri": "localhost",
+  "athlete_code": "string"
+}
